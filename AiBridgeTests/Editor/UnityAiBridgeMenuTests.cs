@@ -11,6 +11,7 @@ namespace Linalab.UnityAiBridge.Editor.Tests
         public void SetUp()
         {
             EditorPrefs.DeleteKey(UnityAiBridgeMenu.AutoStartPreferenceKey);
+            System.Environment.SetEnvironmentVariable("LUX_CLI_PATH", null);
             UnityAiBridgeTcpServer.StopShared();
             DiscoveryFileCleanup.DeleteDiscoveryFile();
         }
@@ -21,6 +22,7 @@ namespace Linalab.UnityAiBridge.Editor.Tests
             UnityAiBridgeTcpServer.StopShared();
             DiscoveryFileCleanup.DeleteDiscoveryFile();
             EditorPrefs.DeleteKey(UnityAiBridgeMenu.AutoStartPreferenceKey);
+            System.Environment.SetEnvironmentVariable("LUX_CLI_PATH", null);
         }
 
         [Test]
@@ -88,27 +90,36 @@ namespace Linalab.UnityAiBridge.Editor.Tests
         }
 
         [Test]
-        public void BuildMcpHelperCommand_TargetsBuiltPackageEntrypoint()
+        public void BuildMcpServerCommand_TargetsLuxMcpStdioServer()
         {
             var projectPath = Directory.GetCurrentDirectory();
-            var expectedEntrypoint = Path.Combine(projectPath, "Packages", "com.linalab.lux", "McpHelper~", "dist", "src", "index.js");
-            var command = UnityAiBridgeMenu.BuildMcpHelperCommand();
+            var command = UnityAiBridgeMenu.BuildMcpServerCommand();
 
-            Assert.That(command, Does.Contain($"UNITY_PROJECT_PATH='{projectPath}'"));
-            Assert.That(command, Does.Contain($"node '{expectedEntrypoint}'"));
-            Assert.That(command, Does.Not.Contain("McpHelper~/dist/index.js"));
+            Assert.That(command, Does.Contain("'lux' mcp"));
+            Assert.That(command, Does.Contain($"--project-path '{projectPath}'"));
+            Assert.That(command, Does.Not.Contain("McpHelper~"));
+            Assert.That(command, Does.Not.Contain("node "));
         }
 
         [Test]
-        public void BuildMcpHelperCommand_QuotesSpecialCharactersForPosixShell()
+        public void BuildMcpServerCommand_QuotesSpecialCharactersForPosixShell()
         {
             var projectPath = "/tmp/Unity AI Bridge/$HOME/`whoami`/$(touch bad)/Bob's \"Project\"";
             var expectedProjectPath = "'/tmp/Unity AI Bridge/$HOME/`whoami`/$(touch bad)/Bob'\\''s \"Project\"'";
-            var expectedEntrypoint = "'/tmp/Unity AI Bridge/$HOME/`whoami`/$(touch bad)/Bob'\\''s \"Project\"/Packages/com.linalab.lux/McpHelper~/dist/src/index.js'";
-            var command = InvokeBuildMcpHelperCommand(projectPath);
+            var command = InvokeBuildMcpServerCommand(projectPath);
 
-            Assert.That(command, Is.EqualTo($"UNITY_PROJECT_PATH={expectedProjectPath} node {expectedEntrypoint}"));
+            Assert.That(command, Is.EqualTo($"'lux' mcp --project-path {expectedProjectPath}"));
             Assert.That(command, Does.Not.Contain("\"/tmp/Unity AI Bridge"));
+        }
+
+        [Test]
+        public void BuildMcpServerCommand_UsesExplicitLuxCliPathWhenProvided()
+        {
+            System.Environment.SetEnvironmentVariable("LUX_CLI_PATH", "/Applications/Lux CLI/lux");
+
+            var command = InvokeBuildMcpServerCommand("/tmp/MyProject");
+
+            Assert.That(command, Is.EqualTo("'/Applications/Lux CLI/lux' mcp --project-path '/tmp/MyProject'"));
         }
 
         [Test]
@@ -119,9 +130,9 @@ namespace Linalab.UnityAiBridge.Editor.Tests
             Assert.That(quoted, Is.EqualTo("'a b$c`d`$(e)'\\''f\"g'"));
         }
 
-        private static string InvokeBuildMcpHelperCommand(string projectPath)
+        private static string InvokeBuildMcpServerCommand(string projectPath)
         {
-            var buildCommand = typeof(UnityAiBridgeMenu).GetMethod("BuildMcpHelperCommand", BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(string) }, null);
+            var buildCommand = typeof(UnityAiBridgeMenu).GetMethod("BuildMcpServerCommand", BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(string) }, null);
 
             Assert.That(buildCommand, Is.Not.Null);
             return (string)buildCommand.Invoke(null, new object[] { projectPath });

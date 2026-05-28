@@ -13,7 +13,7 @@ namespace Linalab.UnityAiBridge.Editor
         private const string StopContextServerMenu = MenuRoot + "Stop Context Server";
         private const string RestartContextServerMenu = MenuRoot + "Restart Context Server";
         private const string RevealServerDiscoveryMenu = MenuRoot + "Reveal Server Discovery";
-        private const string CopyMcpHelperCommandMenu = MenuRoot + "Copy MCP Helper Command";
+        private const string CopyMcpServerCommandMenu = MenuRoot + "Copy MCP Server Command";
         private const string AutoStartContextServerMenu = MenuRoot + "Auto Start Context Server";
 
         public static UnityAiBridgeTcpServer StartContextServer()
@@ -49,22 +49,26 @@ namespace Linalab.UnityAiBridge.Editor
             EditorUtility.RevealInFinder(discoveryPath);
         }
 
-        public static string BuildMcpHelperCommand()
+        public static string BuildMcpServerCommand()
         {
-            return BuildMcpHelperCommand(Directory.GetCurrentDirectory());
+            return BuildMcpServerCommand(Directory.GetCurrentDirectory());
         }
 
-        private static string BuildMcpHelperCommand(string projectPath)
+        private static string BuildMcpServerCommand(string projectPath)
         {
-            var helperEntryPoint = Path.Combine(projectPath, "Packages", "com.linalab.lux", "McpHelper~", "dist", "src", "index.js");
-            return $"UNITY_PROJECT_PATH={QuotePosixShellArgument(projectPath)} node {QuotePosixShellArgument(helperEntryPoint)}";
+            var luxExecutable = System.Environment.GetEnvironmentVariable("LUX_CLI_PATH");
+            if (string.IsNullOrWhiteSpace(luxExecutable))
+            {
+                luxExecutable = "lux";
+            }
+            return $"{QuotePosixShellArgument(luxExecutable)} mcp --project-path {QuotePosixShellArgument(projectPath)}";
         }
 
-        public static void CopyMcpHelperCommand()
+        public static void CopyMcpServerCommand()
         {
-            var command = BuildMcpHelperCommand();
+            var command = BuildMcpServerCommand();
             EditorGUIUtility.systemCopyBuffer = command;
-            Debug.Log($"Unity AI Bridge MCP helper command copied: {command}");
+            Debug.Log($"Unity AI Bridge MCP server command copied: {command}");
         }
 
         public static bool GetAutoStartEnabled()
@@ -106,10 +110,10 @@ namespace Linalab.UnityAiBridge.Editor
             RevealServerDiscovery();
         }
 
-        [MenuItem(CopyMcpHelperCommandMenu)]
-        private static void CopyMcpHelperCommandMenuItem()
+        [MenuItem(CopyMcpServerCommandMenu)]
+        private static void CopyMcpServerCommandMenuItem()
         {
-            CopyMcpHelperCommand();
+            CopyMcpServerCommand();
         }
 
         [MenuItem(AutoStartContextServerMenu)]
